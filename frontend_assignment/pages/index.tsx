@@ -1,13 +1,68 @@
 import detectEthereumProvider from "@metamask/detect-provider"
 import { Strategy, ZkIdentity } from "@zk-kit/identity"
 import { generateMerkleProof, Semaphore } from "@zk-kit/protocols"
-import { providers } from "ethers"
+import { providers,Contract,utils } from "ethers"
 import Head from "next/head"
-import React from "react"
+import {useEffect, React, useState} from "react"
 import styles from "../styles/Home.module.css"
+import { useForm, SubmitHandler } from "react-hook-form";
+import { object, string, number, date, InferType } from 'yup';
+import { yupResolver } from '@hookform/resolvers/yup';
+import Greeter from "artifacts/contracts/Greeters.sol/Greeters.json"
+import TextField from "@mui/material/TextField";
+let userSchema = object({
+  name: string().required(),
+  age: number().required().positive().integer(),
+  address: string().required()
+});
 
+type Inputs = {
+  name: string,
+  age: number,
+  address: string,
+};
+
+function ZKForm() {
+  const { register, handleSubmit, watch, formState: { errors } } = useForm<Inputs>({
+  	resolver: yupResolver<yup.AnyObjectSchema>(userSchema)
+  });
+  const onSubmit: SubmitHandler<Inputs> = data => console.log(data);
+
+  
+  return (
+    /* "handleSubmit" will validate your inputs before invoking "onSubmit" */
+    <div>
+    <form onSubmit={handleSubmit(onSubmit)}>
+      <TextField id="outlined-basic" label="name" variant="outlined" autoComplete="off" {...register("name", { required: true })} /> 
+      <TextField id="outlined-basic" label="age" variant="outlined" autoComplete="off" {...register("age", { required: true })} />
+      <TextField id="outlined-basic" label="address" variant="outlined" autoComplete="off" {...register("address", { required: true })} />
+      <input type="submit" />
+    </form>
+    </div>
+  );
+}
 export default function Home() {
-    const [logs, setLogs] = React.useState("Connect your wallet and greet!")
+	const [greeting, setGreeting] = useState("");
+
+	useEffect(async function(){
+	//const provider = (await detectEthereumProvider()) as any;
+	        //const ethers = new providers.Web3Provider(provider);
+	        
+	       	//provider.pollingInterval = 1000;
+			const contract = new Contract("0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512", Greeter.abi)
+			const filters = contract.filters.NewGreeting()
+			const provider = new providers.JsonRpcProvider('http://localhost:8545/')
+			const contractOwner = contract.connect(provider.getSigner())
+			//console.log(ethers)
+			//var str = web3.utils.hexToAscii(filters.topics[0])
+			//console.log(str)
+			contractOwner.on('NewGreeting', (greeting) => {
+			        const message = utils.parseBytes32String(greeting)
+			        setGreeting(message)
+			})
+		 
+	},[])
+    const [logs, setLogs] = useState("Connect your wallet and greet!")
 
     async function greet() {
         setLogs("Creating your Semaphore identity...")
@@ -77,6 +132,15 @@ export default function Home() {
                 <div onClick={() => greet()} className={styles.button}>
                     Greet
                 </div>
+                <br/><br/>
+                <textarea
+                          placeholder="Waiting for a greeting"
+                          value={greeting}
+                          onChange={() => {}}
+                          marginTop="10px"
+                        />
+                        <br/><br/>
+                <ZKForm/>
             </main>
         </div>
     )
